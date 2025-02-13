@@ -1,0 +1,437 @@
+> # apply output formatting hooks if the fansi package is available
+> if(requireNamespace("fansi", quietly = TRUE)) {
++     old_hooks <- fansi::set_knit_hooks(knitr::knit_hooks, 
++                                        which = c("output", "message", "error"))
++ }
+<STYLE type='text/css' scoped>
+PRE.fansi SPAN {padding-top: .25em; padding-bottom: .25em};
+</STYLE>
+> # install slimr from github (only needed if not already installed)
+> # devtools::install_github("rdinnager/slimr")
+> > # load slimr
+> library(slimr)
+Welcome to the slimr package for forward population genetics simulation in SLiM. For more information on SLiM please visit https://messerlab.org/slim/ .
+
+Attaching package: ‘slimr’
+
+The following object is masked from ‘package:ape’:
+
+    reconstruct
+
+The following object is masked from ‘package:methods’:
+
+    initialize
+
+The following object is masked from ‘package:base’:
+
+    interaction
+
+> # specify the path to the SLiM executable (if necessary)
+> # Sys.setenv(slim_path = "/path/to/SLiM")
+> sim <- slim_script(
++     ## initialization block: define global parameters before the simulation starts
++     slim_block(initialize(), {
++         
++         # set the mutation rate
++         initializeMutationRate(1e-7)
++         
++         # define a single mutation type "m1"
++         # - 0.5: dominance coefficient (0.5 = semi-dominant)
++         # - "f": fitness distribution type ("f" = fixed)
++         # - 0.0: fitness effect (neutral mutation)
++         initializeMutationType("m1", 0.5, "f", 0.0)
++         
++         # define a genomic element type "g1" associated with mutation type "m1"
++         # - mutations of type "m1" occur in these elements
++         # - 1.0: all mutations in this element have the same probability
++         initializeGenomicElementType("g1", m1, 1.0)
++         
++         # assign genomic element "g1" to a chromosome region of 100,000 bases
++         # - this simulates a simple 100kb genome segment where mutations can occur
++         initializeGenomicElement(g1, 0, 100000 - 1)
++         
++         # set the recombination rate across the genome
++         # - 1e-8 crossover events per base per generation
++         initializeRecombinationRate(1e-8)
++     }),
++     
++     ## first generation: establish populations and migration structure
++     slim_block(1, {
++         
++         # create two subpopulations "p1" and "p2", each with 100 individuals
++         # - subpopulations are independent but will exchange migrants
++         sim%.%SLiMSim$addSubpop("p1", 100)  
++         sim%.%SLiMSim$addSubpop("p2", 100)
++         
++         # define symmetrical migration rates between the two subpopulations
++         # - 0.1 means 10% of each subpopulation migrates to the other per generation
++         p1%.%Subpopulation$setMigrationRates(p2, 0.1)
++         p2%.%Subpopulation$setMigrationRates(p1, 0.1)
++     }),
++     
++     ## stopping condition: terminate simulation at generation 100,000
++     slim_block(100000, {
++         # tell SLiM to stop the simulation at this generation
++         sim%.%SLiMSim$simulationFinished()
++     })
++ )
+> > # display the simulation script
+> sim
+<slimr_script[3]>
+block_init:initialize() {
+    initializeMutationRate(1e-07);
+    initializeMutationType("m1", 0.5, "f", 0);
+    initializeGenomicElementType("g1", m1, 1);
+    initializeGenomicElement(g1, 0, 1e+05 - 1);
+    initializeRecombinationRate[22m(1e-08);
+}
+
+block_2:1 early() {
+    sim.addSubpop("p1", 100);
+    sim.addSubpop("p2", 100);
+    p1.setMigrationRates(p2, 0.1);
+    p2.setMigrationRates(p1, 0.1);
+}
+
+block_3:1e+05 early() {
+    sim.simulationFinished();
+}
+> # Execute the simulation
+> sim_run <- slim_run(sim)
+                                                                                        
+
+Simulation finished with exit status: 0
+
+Success!
+> sim <- slim_script(
++     ## initialization block: define global parameters before the simulation starts
++     slim_block(initialize(), {
++         
++         # set the mutation rate
++         initializeMutationRate(1e-7)
++         
++         # define a single mutation type "m1"
++         # - 0.5: dominance coefficient (0.5 = semi-dominant)
++         # - "f": fitness distribution type ("f" = fixed)
++         # - 0.0: fitness effect (neutral mutation)
++         initializeMutationType("m1", 0.5, "f", 0.0)
++         
++         # define a genomic element type "g1" associated with mutation type "m1"
++         # - mutations of type "m1" occur in these elements
++         # - 1.0: all mutations in this element have the same probability
++         initializeGenomicElementType("g1", m1, 1.0)
++         
++         # assign genomic element "g1" to a chromosome region of 100,000 bases
++         # - this simulates a simple 100kb genome segment where mutations can occur
++         initializeGenomicElement(g1, 0, 100000 - 1)
++         
++         # set the recombination rate across the genome
++         # - 1e-8 crossover events per base per generation
++         initializeRecombinationRate(1e-8)
++     }),
++     
++     ## first generation: establish populations and migration structure
++     slim_block(1, {
++         
++         # create two subpopulations "p1" and "p2", each with 100 individuals
++         # - subpopulations are independent but will exchange migrants
++         sim%.%SLiMSim$addSubpop("p1", 100)  
++         sim%.%SLiMSim$addSubpop("p2", 100)
++         
++         # define symmetrical migration rates between the two subpopulations
++         # - 0.1 means 10% of each subpopulation migrates to the other per generation
++         p1%.%Subpopulation$setMigrationRates(p2, 0.1)
++         p2%.%Subpopulation$setMigrationRates(p1, 0.1)
++     }),
++     
++     # End simulation at generation 100,000 and output results
++     slim_block(100000, {
++         ## Capture the full genome information of individuals
++         slimr_output(sim%.%SLiMSim$outputFull(), name = "full_output")
++         
++         ## Tell SLiM to stop the simulation
++         sim%.%SLiMSim$simulationFinished()
++     })
++ )
+> > # display the simulation script
+> sim
+<slimr_script[3]>
+block_init:initialize() {
+    initializeMutationRate(1e-07);
+    initializeMutationType("m1", 0.5, "f", 0);
+    initializeGenomicElementType("g1", m1, 1);
+    initializeGenomicElement(g1, 0, 1e+05 - 1);
+    initializeRecombinationRate[22m(1e-08);
+}
+
+block_2:1 early() {
+    sim.addSubpop("p1", 100);
+    sim.addSubpop("p2", 100);
+    p1.setMigrationRates(p2, 0.1);
+    p2.setMigrationRates(p1, 0.1);
+}
+
+block_3:1e+05 early() {
+    {sim.outputFull() -> full_output}
+    sim.simulationFinished();
+}
+> # Run the simulation and store the output
+> sim_run <- slim_run(sim)
+                                                                                        
+
+Simulation finished with exit status: 0
+
+Success!
+> # Convert SLiM output into a genlight object
+> gl <- slim_extract_genlight(sim_run) 
+Error in `assert_package()`:
+! This function requires the adegenet package, which is not installed. Install with install.packages("adegenet").
+Run `rlang::last_trace()` to see where the error occurred.
+> sim_fst <- slim_script(
++     
++     slim_block(initialize(), {
++         ## initialise the simulation environment
++         ## set mutation rate
++         initializeMutationRate(1e-7)
++         ## define a mutation type with a neutral fitness effect
++         initializeMutationType("m1", 0.5, "f", 0.0)
++         ## set up genomic elements with the mutation type
++         initializeGenomicElementType("g1", m1, 1.0)
++         initializeGenomicElement(g1, 0, 100000 - 1)
++         ## specify recombination rates
++         initializeRecombinationRate(1e-8)
++     }),
++     
++     slim_block(1, {
++         ## initialize two populations with 100 individuals each
++         sim%.%SLiMSim$addSubpop("p1", 100)
++         sim%.%SLiMSim$addSubpop("p2", 100)
++         ## set symmetric migration between the two populations
++         p1%.%Subpopulation$setMigrationRates(p2, 0.01)
++         p2%.%Subpopulation$setMigrationRates(p1, 0.01)
++     }),
++     
++     slim_block(1, 100000, late(), {
++         ## calculate Fst between the two populations every 100 generations
++         slimr_output(calcFST(p1.genomes, p2.genomes), name = "fst",
++                      do_every = 100)
++     }),
++     
++     slim_block(100000, late(), {
++         ## end the simulation
++         sim%.%SLiMSim$simulationFinished()
++     })
++ )
+> > sim_fst  # print simulation setup
+<slimr_script[4]>
+block_init:initialize() {
+    initializeMutationRate(1e-07);
+    initializeMutationType("m1", 0.5, "f", 0);
+    initializeGenomicElementType("g1", m1, 1);
+    initializeGenomicElement(g1, 0, 1e+05 - 1);
+    initializeRecombinationRate[22m(1e-08);
+}
+
+block_2:1 early() {
+    sim.addSubpop("p1", 100);
+    sim.addSubpop("p2", 100);
+    p1.setMigrationRates(p2, 0.01);
+    p2.setMigrationRates(p1, 0.01);
+}
+
+block_3:1:1e+05 late() {
+    {calcFST[34m(p1.genomes, p2.genomes) -> fst}
+}
+
+block_4:1e+05 late() {
+    sim.simulationFinished();
+}
+> # Now, let's run the simulation and extract the recorded F~st~ values:
+> fst_run <- slim_run(sim_fst)  # execute SLiM simulation
+                                                                                        
+
+Simulation finished with exit status: 0
+
+Success!
+> fst_run$output_data  # check raw output
+# A tibble: 1,000 × 5
+   generation name  expression                      type                      data     
+        <int> <chr> <chr>                           <chr>                     <chr>    
+ 1        100 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0679529\n" 0.0679529
+ 2        200 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.041408\n"  0.041408 
+ 3        300 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0522517\n" 0.0522517
+ 4        400 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.132099\n"  0.132099 
+ 5        500 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0407862\n" 0.0407862
+ 6        600 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0646091\n" 0.0646091
+ 7        700 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0416014\n" 0.0416014
+ 8        800 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0234611\n" 0.0234611
+ 9        900 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0348437\n" 0.0348437
+10       1000 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0133043\n" 0.0133043
+# ℹ 990 more rows
+# ℹ Use `print(n = ...)` to see more rows
+> # To convert this into usable data, we use slim_results_to_data(), ensuring F~st~ is stored as numeric values:
+> fst_dat <- slim_results_to_data(fst_run) %>%
++     mutate(fst = as.numeric(unlist(data)))
+Error in mutate(., fst = as.numeric(unlist(data))) : 
+  could not find function "mutate"
+> # To convert this into usable data, we use slim_results_to_data(), ensuring F~st~ is stored as numeric values:
+> fst_dat <- slim_results_to_data(fst_run) %>%
++     mutate(fst = as.numeric(unlist(data)))
+Error in mutate(., fst = as.numeric(unlist(data))) : 
+  could not find function "mutate"
+> sim_fst <- slim_script(
++   
++   slim_block(initialize(), {
++     ## initialise the simulation environment
++     ## set mutation rate
++     initializeMutationRate(1e-7)
++     ## define a mutation type with a neutral fitness effect
++     initializeMutationType("m1", 0.5, "f", 0.0)
++     ## set up genomic elements with the mutation type
++     initializeGenomicElementType("g1", m1, 1.0)
++     initializeGenomicElement(g1, 0, 100000 - 1)
++     ## specify recombination rates
++     initializeRecombinationRate(1e-8)
++   }),
++   
++   slim_block(1, {
++     ## initialize two populations with 100 individuals each
++     sim%.%SLiMSim$addSubpop("p1", 100)
++     sim%.%SLiMSim$addSubpop("p2", 100)
++     ## set symmetric migration between the two populations
++     p1%.%Subpopulation$setMigrationRates(p2, 0.01)
++     p2%.%Subpopulation$setMigrationRates(p1, 0.01)
++   }),
++   
++   slim_block(1, 100000, late(), {
++     ## calculate Fst between the two populations every 100 generations
++     slimr_output(calcFST(p1.genomes, p2.genomes), name = "fst",
++                  do_every = 100)
++   }),
++   
++   slim_block(100000, late(), {
++     ## end the simulation
++     sim%.%SLiMSim$simulationFinished()
++   })
++ )
+> sim_fst  # print simulation setup
+<slimr_script[4]>
+block_init:initialize() {
+    initializeMutationRate(1e-07);
+    initializeMutationType("m1", 0.5, "f", 0);
+    initializeGenomicElementType("g1", m1, 1);
+    initializeGenomicElement(g1, 0, 1e+05 - 1);
+    initializeRecombinationRate[22m(1e-08);
+}
+
+block_2:1 early() {
+    sim.addSubpop("p1", 100);
+    sim.addSubpop("p2", 100);
+    p1.setMigrationRates(p2, 0.01);
+    p2.setMigrationRates(p1, 0.01);
+}
+
+block_3:1:1e+05 late() {
+    {calcFST[34m(p1.genomes, p2.genomes) -> fst}
+}
+
+block_4:1e+05 late() {
+    sim.simulationFinished();
+}
+> sim_fst <- slim_script(
++   
++   slim_block(initialize(), {
++     ## initialise the simulation environment
++     ## set mutation rate
++     initializeMutationRate(1e-7)
++     ## define a mutation type with a neutral fitness effect
++     initializeMutationType("m1", 0.5, "f", 0.0)
++     ## set up genomic elements with the mutation type
++     initializeGenomicElementType("g1", m1, 1.0)
++     initializeGenomicElement(g1, 0, 100000 - 1)
++     ## specify recombination rates
++     initializeRecombinationRate(1e-8)
++   }),
++   
++   slim_block(1, {
++     ## initialize two populations with 100 individuals each
++     sim%.%SLiMSim$addSubpop("p1", 100)
++     sim%.%SLiMSim$addSubpop("p2", 100)
++     ## set symmetric migration between the two populations
++     p1%.%Subpopulation$setMigrationRates(p2, 0.01)
++     p2%.%Subpopulation$setMigrationRates(p1, 0.01)
++   }),
++   
++   slim_block(1, 100000, late(), {
++     ## calculate Fst between the two populations every 100 generations
++     slimr_output(calcFST(p1.genomes, p2.genomes), name = "fst",
++                  do_every = 100)
++   }),
++   
++   slim_block(100000, late(), {
++     ## end the simulation
++     sim%.%SLiMSim$simulationFinished()
++   })
++ )
+> sim_fst  # print simulation setup
+<slimr_script[4]>
+block_init:initialize() {
+    initializeMutationRate(1e-07);
+    initializeMutationType("m1", 0.5, "f", 0);
+    initializeGenomicElementType("g1", m1, 1);
+    initializeGenomicElement(g1, 0, 1e+05 - 1);
+    initializeRecombinationRate[22m(1e-08);
+}
+
+block_2:1 early() {
+    sim.addSubpop("p1", 100);
+    sim.addSubpop("p2", 100);
+    p1.setMigrationRates(p2, 0.01);
+    p2.setMigrationRates(p1, 0.01);
+}
+
+block_3:1:1e+05 late() {
+    {calcFST[34m(p1.genomes, p2.genomes) -> fst}
+}
+
+block_4:1e+05 late() {
+    sim.simulationFinished();
+}
+> > # Now, let's run the simulation and extract the recorded F~st~ values:
+> fst_run <- slim_run(sim_fst)  # execute SLiM simulation
+                                                                                        
+
+Simulation finished with exit status: 0
+
+Success!
+> fst_run$output_data  # check raw output
+# A tibble: 1,000 × 5
+   generation name  expression                      type                      data     
+        <int> <chr> <chr>                           <chr>                     <chr>    
+ 1        100 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0499022\n" 0.0499022
+ 2        200 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0831138\n" 0.0831138
+ 3        300 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0329928\n" 0.0329928
+ 4        400 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.101853\n"  0.101853 
+ 5        500 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0267629\n" 0.0267629
+ 6        600 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0904851\n" 0.0904851
+ 7        700 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0248422\n" 0.0248422
+ 8        800 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0504454\n" 0.0504454
+ 9        900 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.121291\n"  0.121291 
+10       1000 fst   calcFST(p1.genomes, p2.genomes) "float [0:0] 0.0377118\n" 0.0377118
+# ℹ 990 more rows
+# ℹ Use `print(n = ...)` to see more rows
+> fst_dat  # preview processed Fst values
+Error: object 'fst_dat' not found
+> sim_fst  # print the simulation structure
+<slimr_script[4]>
+block_init:initialize() {
+    initializeMutationRate(1e-07);
+    initializeMutationType("m1", 0.5, "f", 0);
+    initializeGenomicElementType("g1", m1, 1);
+    initializeGenomicElement(g1, 0, 1e+05 - 1);
+    initializeRecombinationRate[22m(1e-08);
+}
+
+block_2:1 early() {
+    sim.addSubpop("p1", 100);
+    sim.addSubpop(
